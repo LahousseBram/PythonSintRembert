@@ -9,8 +9,19 @@ class Tile(pygame.sprite.Sprite):
         self.child = child
         self.image = pygame.Surface((self.width, self.height))
         self.color = (200, 200, 200) if not is_path else (100, 100, 100)
-        self.image.fill(self.color)
+        self.render()
         self.rect = self.image.get_rect(topleft=(x, y))
+
+    def render(self):
+        self.image.fill(self.color)
+        
+        if self.child:
+            circle_radius = 15
+            circle_pos = (self.width // 2, self.height // 2)
+            pygame.draw.circle(self.image, (255, 0, 0), circle_pos, circle_radius)
+
+    def update(self):
+        self.render()
 
 class TileMap:
     def __init__(self, screen):
@@ -26,6 +37,7 @@ class TileMap:
             (20, 6), (21, 6), (22, 6), (23, 6), (23, 7), (23, 8), (23, 9), (24, 9), (25, 9), (26, 9), 
             (27, 9), (28, 9), (29, 9), (30, 9), (31, 9)
         ]
+        self.path_sprites: list[Tile] = []
         self.create_tiles()
 
     def create_tiles(self):
@@ -35,9 +47,35 @@ class TileMap:
                 self.tiles.add(tile)
 
     def draw_path(self):
-        path_indexes = [0,1,2,3]
-        for index in path_indexes:
-            self.tiles.sprites()[index].is_path = True
+        for x, y in self.path:
+            tile_index = y * self.grid_width + x
+            if tile_index < len(self.tiles.sprites()):
+                tile = self.tiles.sprites()[tile_index]
+                tile.is_path = True
+                self.path_sprites.append(tile)
+                tile.update()
 
     def draw_tiles(self):
         self.tiles.draw(self.screen)
+
+    def get_next_path_tile(self, tile):
+        current_tile_index = self.path_sprites.index(tile)
+        try:
+            return self.path_sprites[current_tile_index + 1]
+        except IndexError:
+            return None
+        
+    def move_all_tiles(self):
+        for tile in reversed(self.path_sprites): # Hier voor die edgecase van infinite child moving moet reversed list zijn
+            if tile.child:
+                self.move_tile_child_to_next(tile)
+
+    
+    def move_tile_child_to_next(self, tile: Tile):
+        tile.child = False
+        tile.update()
+        next_tile: Tile = self.get_next_path_tile(tile)
+
+        if next_tile:
+            next_tile.child = True
+            next_tile.update()
